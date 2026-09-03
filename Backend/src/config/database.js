@@ -31,4 +31,4 @@ const testConnection = async () => {
 
 testConnection();
 
-module.exports = sequelize;
+module.exports = sequelize; 
