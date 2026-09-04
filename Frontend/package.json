@@ -1,6 +1,21 @@
 {
+  "name": "mon-projet-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
   "dependencies": {
     "axios": "^1.20.0",
     "react-router-dom": "^7.18.3"
+  },
+  "devDependencies": {
+    "@react-router/dev": "^7.18.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "vite": "^8.2.2"
   }
 }
