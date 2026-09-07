@@ -1,51 +1,57 @@
+// server.js
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+const dotenv = require('dotenv');
 
-const sequelize = require('./src/config/database');
+// Import des routes
 const projectRoutes = require('./routes/projectRoutes');
 const skillRoutes = require('./routes/skillRoutes');
+const contactRoutes = require('./routes/contactRoutes');
+const userRoutes = require('./routes/userRoutes');
 
-// Initialisation
+dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middlewares
-app.use(cors({
-  origin: 'http://localhost:5173', // URL de Vite
-  credentials: true
-}));
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/projects', projectRoutes);
 app.use('/api/skills', skillRoutes);
+app.use('/api/contacts', contactRoutes);
+app.use('/api/users', userRoutes);  // 👈 Ajout des routes utilisateurs
 
 // Route de test
-app.get('/api/test', (req, res) => {
-  res.json({ 
-    success: true, 
-    message: 'API Portfolio fonctionne!',
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'API Portfolio fonctionnelle ✅',
     timestamp: new Date().toISOString()
   });
 });
 
-// ✅ Synchronisation de la base de données et démarrage
-const startServer = async () => {
-  try {
-    // Synchroniser les modèles avec MySQL
-    await sequelize.sync({ alter: true }); // alter: true met à jour les tables sans perdre les données
-    console.log('✅ Tables synchronisées avec MySQL');
-    
-    // Démarrer le serveur
-    app.listen(PORT, () => {
-      console.log(`🚀 Serveur backend démarré sur http://localhost:${PORT}`);
-      console.log(`📊 Base de données: ${process.env.DB_NAME}`);
-    });
-  } catch (error) {
-    console.error('❌ Erreur lors du démarrage:', error.message);
-  }
-};
+// Route 404
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route non trouvée'
+  });
+});
 
-startServer();
+// Gestionnaire d'erreurs
+app.use((err, req, res, next) => {
+  console.error('❌ Erreur:', err.message);
+  res.status(500).json({
+    success: false,
+    message: 'Erreur serveur interne',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Serveur démarré sur http://localhost:${PORT}`);
+  console.log(`📡 API: http://localhost:${PORT}/api/health`);
+});
