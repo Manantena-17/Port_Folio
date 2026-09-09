@@ -39,7 +39,7 @@ app.use((req, res) => {
     success: false,
     message: 'Route non trouvée'
   });
-});
+}); 
 
 // Gestionnaire d'erreurs
 app.use((err, req, res, next) => {

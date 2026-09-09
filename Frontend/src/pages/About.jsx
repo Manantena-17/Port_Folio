@@ -107,7 +107,7 @@ function About() {
               <h3 style={{ color: '#1a1a2e', marginBottom: '0.5rem' }}>
                 Licence en Informatique
               </h3>
-              <p style={{ color: '#666' }}>Université de Fianarantsoa - 2022-2025</p>
+              <p style={{ color: '#666' }}>Université de Fianarantsoa - 22=022-2025</p>
             </div>
             <div style={{ marginTop: '1rem' }}>
               <h3 style={{ color: '#1a1a2e', marginBottom: '0.5rem' }}>
