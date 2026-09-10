@@ -1,7 +1,7 @@
 // src/App.jsx - Page Projects
 import React, { useState, useEffect } from 'react';
-import { projectService } from '../services/api';
-import ProjectCard from '../componements/ProjectCard';
+import { projectService } from './services/api';
+import ProjectCard from './componements/ProjectCard';
 
 function Projects() {
   const [projects, setProjects] = useState([]);
