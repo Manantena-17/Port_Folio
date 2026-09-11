@@ -1,7 +1,7 @@
 // routes/contact.routes.js
 const express = require('express');
 const router = express.Router();
-const contactController = require('../controllers/contactController');
+const contactController = require('../controllers/contact.controller');
 
 // Routes publiques
 router.get('/', contactController.getContacts);

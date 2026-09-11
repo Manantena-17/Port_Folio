@@ -1,11 +1,11 @@
 // routes/skillRoutes.js
 const express = require('express');
 const router = express.Router();
-const skillController = require('../controllers/skillController');
+const skillController = require('../controllers/skill.controller');
 
 // Routes publiques
 router.get('/', skillController.getSkills);
-router.get('/search', skillController.searchSkills);
+router.get('/category/:category', skillController.getSkillsByCategory);
 router.get('/:id', skillController.getSkillById);
 
 // Routes d'administration (à protéger plus tard avec JWT)

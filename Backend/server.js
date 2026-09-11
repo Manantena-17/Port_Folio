@@ -4,10 +4,9 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 
 // Import des routes
-const projectRoutes = require('./routes/projectRoutes');
-const skillRoutes = require('./routes/skillRoutes');
-const contactRoutes = require('./routes/contactRoutes');
-const userRoutes = require('./routes/userRoutes');
+const projectRoutes = require('./src/routes/project.routes');
+const skillRoutes = require('./src/routes/skill.routes');
+const contactRoutes = require('./src/routes/contact.routes');
 
 dotenv.config();
 const app = express();
@@ -22,7 +21,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/projects', projectRoutes);
 app.use('/api/skills', skillRoutes);
 app.use('/api/contacts', contactRoutes);
-app.use('/api/users', userRoutes);  // 👈 Ajout des routes utilisateurs
 
 // Route de test
 app.get('/api/health', (req, res) => {
