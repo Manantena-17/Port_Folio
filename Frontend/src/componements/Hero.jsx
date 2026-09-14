@@ -6,7 +6,7 @@ function Hero() {
     <div style={{
       textAlign: 'center',
       padding: '4rem 2rem',
-      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+      background: 'linear-gradient(135deg, #2c2c2c 0%, #4a4a4a 50%, #6e6e6e 100%)',
       color: 'white',
       borderRadius: '10px',
       marginBottom: '2rem'
@@ -31,7 +31,7 @@ function Hero() {
       <div style={{ marginTop: '2rem' }}>
         <a href="/projects" style={{
           backgroundColor: '#f1c40f',
-          color: '#1a1a2e',
+          color: '#2c2c2c',
           padding: '0.8rem 2rem',
           textDecoration: 'none',
           borderRadius: '5px',
