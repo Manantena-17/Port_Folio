@@ -1,5 +1,44 @@
 // src/pages/Contact.jsx
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
+import './Contact.css';
+
+// 🔹 Petit composant réutilisable pour les champs
+const FormField = ({ label, name, type = 'text', value, onChange, error, required, ...props }) => (
+  <div className="form-group">
+    <label htmlFor={name} className="form-label">
+      {label} {required && <span className="required">*</span>}
+    </label>
+    {type === 'textarea' ? (
+      <textarea
+        id={name}
+        name={name}
+        value={value}
+        onChange={onChange}
+        className={`form-input ${error ? 'error' : ''}`}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${name}-error` : undefined}
+        {...props}
+      />
+    ) : (
+      <input
+        id={name}
+        name={name}
+        type={type}
+        value={value}
+        onChange={onChange}
+        className={`form-input ${error ? 'error' : ''}`}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${name}-error` : undefined}
+        {...props}
+      />
+    )}
+    {error && (
+      <p id={`${name}-error`} className="error-message" role="alert">
+        ⚠️ {error}
+      </p>
+    )}
+  </div>
+);
 
 function Contact() {
   const [formData, setFormData] = useState({
@@ -8,329 +47,239 @@ function Contact() {
     subject: '',
     message: ''
   });
-
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [errors, setErrors] = useState({});
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [touched, setTouched] = useState({});
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-    // Efface l'erreur pour ce champ
-    if (errors[e.target.name]) {
-      setErrors({ ...errors, [e.target.name]: '' });
-    }
-  };
-
-  const validateForm = () => {
+  // 🔹 Validation
+  const validate = useCallback((data) => {
     const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = 'Le nom est requis';
-    if (!formData.email.trim()) newErrors.email = 'L\'email est requis';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email invalide';
-    }
-    if (!formData.message.trim()) newErrors.message = 'Le message est requis';
-    return newErrors;
-  };
+    if (!data.name.trim()) newErrors.name = 'Le nom est requis';
+    else if (data.name.trim().length < 2) newErrors.name = 'Le nom doit contenir au moins 2 caractères';
 
-  const handleSubmit = (e) => {
+    if (!data.email.trim()) newErrors.email = "L'email est requis";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+      newErrors.email = 'Format email invalide';
+    }
+
+    if (!data.message.trim()) newErrors.message = 'Le message est requis';
+    else if (data.message.trim().length < 10) {
+      newErrors.message = 'Le message doit contenir au moins 10 caractères';
+    }
+
+    return newErrors;
+  }, []);
+
+  // 🔹 Changement de champ + validation en direct si déjà touché
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target;
+    const updated = { ...formData, [name]: value };
+    setFormData(updated);
+
+    // Validation en temps réel si le champ a déjà été touché
+    if (touched[name]) {
+      const newErrors = validate(updated);
+      setErrors((prev) => ({ ...prev, [name]: newErrors[name] || '' }));
+    }
+  }, [formData, touched, validate]);
+
+  const handleBlur = useCallback((e) => {
+    const { name } = e.target;
+    setTouched((prev) => ({ ...prev, [name]: true }));
+    const newErrors = validate(formData);
+    setErrors((prev) => ({ ...prev, [name]: newErrors[name] || '' }));
+  }, [formData, validate]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    const newErrors = validateForm();
+    const newErrors = validate(formData);
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      // Marquer tous les champs comme touchés
+      setTouched({ name: true, email: true, subject: true, message: true });
       return;
     }
 
-    // Ici vous pouvez ajouter la logique d'envoi vers un backend
-    console.log('Données du formulaire:', formData);
-    setIsSubmitted(true);
-    setTimeout(() => setIsSubmitted(false), 5000);
-    setFormData({ name: '', email: '', subject: '', message: '' });
+    setIsSubmitting(true);
+
+    try {
+      // 🔹 Simulation d'envoi (remplacer par un vrai appel API)
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      // await fetch('/api/contact', { method: 'POST', body: JSON.stringify(formData) });
+
+      console.log('Données envoyées:', formData);
+      setIsSubmitted(true);
+      setFormData({ name: '', email: '', subject: '', message: '' });
+      setTouched({});
+      setErrors({});
+
+      setTimeout(() => setIsSubmitted(false), 6000);
+    } catch (err) {
+      console.error("Erreur d'envoi:", err);
+      setErrors({ global: "Une erreur est survenue. Veuillez réessayer." });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
+  const isFormValid = useMemo(
+    () => Object.keys(validate(formData)).length === 0,
+    [formData, validate]
+  );
+
+  const contactInfos = [
+    { icon: '📧', label: 'Email', value: 'email@example.com', href: 'mailto:email@example.com' },
+    { icon: '📍', label: 'Localisation', value: 'Fianarantsoa, Madagascar' },
+    { icon: '📱', label: 'Téléphone', value: '+261 34 00 000 00', href: 'tel:+261340000000' },
+  ];
+
+  const socials = [
+    { name: 'GitHub', icon: '🐙', url: 'https://github.com' },
+    { name: 'LinkedIn', icon: '💼', url: 'https://linkedin.com' },
+    { name: 'Twitter', icon: '🐦', url: 'https://twitter.com' },
+  ];
+
   return (
-    <div>
-      <h1 style={{ 
-        fontSize: '2.5rem', 
-        marginBottom: '1.5rem',
-        color: '#1a1a2e'
-      }}>
-        📱 Me Contacter
-      </h1>
-      
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 2fr',
-        gap: '3rem',
-        marginTop: '2rem'
-      }}>
-        {/* Informations de contact */}
-        <div>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '2rem',
-            borderRadius: '10px',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-            marginBottom: '1.5rem'
-          }}>
-            <h3 style={{ marginTop: 0 }}>📬 Informations</h3>
-            <div style={{ marginTop: '1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                <span style={{ fontSize: '1.5rem' }}>📧</span>
-                <div>
-                  <div style={{ fontWeight: 'bold' }}>Email</div>
-                  <div style={{ color: '#666' }}>email@example.com</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                <span style={{ fontSize: '1.5rem' }}>📍</span>
-                <div>
-                  <div style={{ fontWeight: 'bold' }}>Localisation</div>
-                  <div style={{ color: '#666' }}>Fianarantsoa, Madagascar</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <span style={{ fontSize: '1.5rem' }}>📱</span>
-                <div>
-                  <div style={{ fontWeight: 'bold' }}>Téléphone</div>
-                  <div style={{ color: '#666' }}>+261 34 00 000 00</div>
-                </div>
-              </div>
-            </div>
-          </div>
+    <div className="contact-page">
+      <header className="contact-header">
+        <h1>📱 Me Contacter</h1>
+        <p className="subtitle">
+          Une question, un projet ? N'hésitez pas à m'écrire, je vous répondrai dans les plus brefs délais.
+        </p>
+      </header>
 
-          <div style={{
-            backgroundColor: 'white',
-            padding: '2rem',
-            borderRadius: '10px',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-          }}>
-            <h3 style={{ marginTop: 0 }}>🌐 Réseaux sociaux</h3>
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-              <a href="#" style={{
-                display: 'inline-block',
-                padding: '0.5rem 1rem',
-                backgroundColor: '#f0f0f0',
-                borderRadius: '5px',
-                textDecoration: 'none',
-                color: '#333'
-              }}>
-                GitHub
-              </a>
-              <a href="#" style={{
-                display: 'inline-block',
-                padding: '0.5rem 1rem',
-                backgroundColor: '#f0f0f0',
-                borderRadius: '5px',
-                textDecoration: 'none',
-                color: '#333'
-              }}>
-                LinkedIn
-              </a>
-              <a href="#" style={{
-                display: 'inline-block',
-                padding: '0.5rem 1rem',
-                backgroundColor: '#f0f0f0',
-                borderRadius: '5px',
-                textDecoration: 'none',
-                color: '#333'
-              }}>
-                Twitter
-              </a>
-            </div>
-          </div>
-        </div>
+      <div className="contact-grid">
+        {/* ─── Colonne infos ─── */}
+        <aside className="contact-sidebar">
+          <section className="info-card">
+            <h3>📬 Informations</h3>
+            <ul className="info-list">
+              {contactInfos.map(({ icon, label, value, href }) => (
+                <li key={label} className="info-item">
+                  <span className="info-icon">{icon}</span>
+                  <div>
+                    <div className="info-label">{label}</div>
+                    {href ? (
+                      <a href={href} className="info-value link">{value}</a>
+                    ) : (
+                      <div className="info-value">{value}</div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
 
-        {/* Formulaire de contact */}
-        <div style={{
-          backgroundColor: 'white',
-          padding: '2rem',
-          borderRadius: '10px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-        }}>
-          <h3 style={{ marginTop: 0 }}>✉️ Envoyez-moi un message</h3>
-          
+          <section className="info-card">
+            <h3>🌐 Réseaux sociaux</h3>
+            <div className="socials">
+              {socials.map(({ name, icon, url }) => (
+                <a
+                  key={name}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="social-btn"
+                  aria-label={name}
+                >
+                  <span>{icon}</span> {name}
+                </a>
+              ))}
+            </div>
+          </section>
+
+          {/* Bonus : carte de disponibilité */}
+          <section className="info-card availability">
+            <span className="status-dot" />
+            <span>Disponible pour de nouveaux projets</span>
+          </section>
+        </aside>
+
+        {/* ─── Colonne formulaire ─── */}
+        <main className="form-card">
+          <h3>✉️ Envoyez-moi un message</h3>
+
           {isSubmitted && (
-            <div style={{
-              backgroundColor: '#d4edda',
-              color: '#155724',
-              padding: '1rem',
-              borderRadius: '5px',
-              marginBottom: '1.5rem',
-              textAlign: 'center',
-              animation: 'fadeIn 0.5s'
-            }}>
+            <div className="alert success" role="status">
               ✅ Message envoyé avec succès ! Je vous répondrai rapidement.
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                fontWeight: 'bold',
-                color: '#333'
-              }}>
-                Nom complet *
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                style={{
-                  width: '100%',
-                  padding: '0.8rem',
-                  border: `2px solid ${errors.name ? '#dc3545' : '#e0e0e0'}`,
-                  borderRadius: '5px',
-                  fontSize: '1rem',
-                  transition: 'border-color 0.3s'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#f1c40f'}
-                onBlur={(e) => {
-                  if (!errors.name) {
-                    e.target.style.borderColor = '#e0e0e0';
-                  }
-                }}
-              />
-              {errors.name && (
-                <div style={{ color: '#dc3545', fontSize: '0.9rem', marginTop: '0.3rem' }}>
-                  {errors.name}
-                </div>
-              )}
+          {errors.global && (
+            <div className="alert error" role="alert">
+              ❌ {errors.global}
             </div>
+          )}
 
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                fontWeight: 'bold',
-                color: '#333'
-              }}>
-                Email *
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                style={{
-                  width: '100%',
-                  padding: '0.8rem',
-                  border: `2px solid ${errors.email ? '#dc3545' : '#e0e0e0'}`,
-                  borderRadius: '5px',
-                  fontSize: '1rem',
-                  transition: 'border-color 0.3s'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#f1c40f'}
-                onBlur={(e) => {
-                  if (!errors.email) {
-                    e.target.style.borderColor = '#e0e0e0';
-                  }
-                }}
-              />
-              {errors.email && (
-                <div style={{ color: '#dc3545', fontSize: '0.9rem', marginTop: '0.3rem' }}>
-                  {errors.email}
-                </div>
-              )}
-            </div>
+          <form onSubmit={handleSubmit} noValidate>
+            <FormField
+              label="Nom complet"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={errors.name}
+              required
+              placeholder="Jean Dupont"
+              autoComplete="name"
+            />
 
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                fontWeight: 'bold',
-                color: '#333'
-              }}>
-                Sujet
-              </label>
-              <input
-                type="text"
-                name="subject"
-                value={formData.subject}
-                onChange={handleChange}
-                style={{
-                  width: '100%',
-                  padding: '0.8rem',
-                  border: '2px solid #e0e0e0',
-                  borderRadius: '5px',
-                  fontSize: '1rem',
-                  transition: 'border-color 0.3s'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#f1c40f'}
-                onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
-              />
-            </div>
+            <FormField
+              label="Email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={errors.email}
+              required
+              placeholder="jean@exemple.com"
+              autoComplete="email"
+            />
 
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                fontWeight: 'bold',
-                color: '#333'
-              }}>
-                Message *
-              </label>
-              <textarea
-                name="message"
-                value={formData.message}
-                onChange={handleChange}
-                rows="5"
-                style={{
-                  width: '100%',
-                  padding: '0.8rem',
-                  border: `2px solid ${errors.message ? '#dc3545' : '#e0e0e0'}`,
-                  borderRadius: '5px',
-                  fontSize: '1rem',
-                  resize: 'vertical',
-                  fontFamily: 'inherit',
-                  transition: 'border-color 0.3s'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#f1c40f'}
-                onBlur={(e) => {
-                  if (!errors.message) {
-                    e.target.style.borderColor = '#e0e0e0';
-                  }
-                }}
-              />
-              {errors.message && (
-                <div style={{ color: '#dc3545', fontSize: '0.9rem', marginTop: '0.3rem' }}>
-                  {errors.message}
-                </div>
-              )}
+            <FormField
+              label="Sujet"
+              name="subject"
+              value={formData.subject}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              placeholder="De quoi souhaitez-vous parler ?"
+            />
+
+            <FormField
+              label="Message"
+              name="message"
+              type="textarea"
+              value={formData.message}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={errors.message}
+              required
+              rows="5"
+              placeholder="Écrivez votre message ici..."
+              maxLength={1000}
+            />
+            <div className="char-count">
+              {formData.message.length}/1000 caractères
             </div>
 
             <button
               type="submit"
-              style={{
-                width: '100%',
-                backgroundColor: '#f1c40f',
-                color: '#1a1a2e',
-                padding: '1rem',
-                border: 'none',
-                borderRadius: '5px',
-                fontSize: '1.1rem',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                transition: 'all 0.3s'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = 'scale(1.02)';
-                e.target.style.backgroundColor = '#f39c12';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = 'scale(1)';
-                e.target.style.backgroundColor = '#f1c40f';
-              }}
+              className="submit-btn"
+              disabled={isSubmitting || !isFormValid}
             >
-              📤 Envoyer le message
+              {isSubmitting ? (
+                <>
+                  <span className="spinner" /> Envoi en cours...
+                </>
+              ) : (
+                <>📤 Envoyer le message</>
+              )}
             </button>
           </form>
-        </div>
+        </main>
       </div>
     </div>
   );
