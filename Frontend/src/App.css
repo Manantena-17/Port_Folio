@@ -632,7 +632,321 @@ textarea.form-input {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+/* ============================================
+   PAGE À PROPOS
+   ============================================ */
+.about-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  animation: fadeIn 0.5s ease;
+}
 
+.about-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.about-avatar {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  display: inline-block;
+  animation: float 3s ease-in-out infinite;
+}
+
+.about-header h1 {
+  font-size: 2.75rem;
+  margin-bottom: 0.75rem;
+  background: linear-gradient(135deg, #1a1a2e, #6366f1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Grille ─── */
+.about-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.about-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ─── Cartes ─── */
+.about-card {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.about-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+}
+
+.about-card h2 {
+  color: #1a1a2e;
+  font-size: 1.25rem;
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #f1c40f;
+  display: inline-block;
+}
+
+.about-card h3 {
+  color: #1a1a2e;
+  font-size: 1.05rem;
+  margin-bottom: 0.5rem;
+}
+
+.about-card p {
+  color: #555;
+  line-height: 1.8;
+  margin-bottom: 1rem;
+}
+
+.about-card p:last-child {
+  margin-bottom: 0;
+}
+
+.about-card ul {
+  color: #555;
+  line-height: 1.9;
+  padding-left: 1.25rem;
+}
+
+.about-card ul li {
+  margin-bottom: 0.25rem;
+}
+
+/* ─── Objectifs ─── */
+.objectives-list {
+  list-style: none;
+  padding: 0 !important;
+}
+
+.objectives-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  color: #555;
+}
+
+.check-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #f1c40f, #f39c12);
+  color: #1a1a2e;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+/* ─── Compétences ─── */
+.skills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.skill-item {
+  width: 100%;
+}
+
+.skill-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.skill-name {
+  font-weight: 600;
+  color: #333;
+}
+
+.skill-level {
+  color: #999;
+  font-size: 0.85rem;
+}
+
+.skill-bar {
+  width: 100%;
+  height: 8px;
+  background: #eef2f7;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.skill-progress {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: growWidth 1.2s ease-out;
+}
+
+@keyframes growWidth {
+  from { width: 0 !important; }
+}
+
+/* ─── Timeline ─── */
+.timeline {
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  left: 8px;
+  width: 2px;
+  background: linear-gradient(180deg, #f1c40f, #f39c12, transparent);
+}
+
+.timeline-item {
+  position: relative;
+  padding-bottom: 1.75rem;
+}
+
+.timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-marker {
+  position: absolute;
+  left: -1.5rem;
+  top: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #f1c40f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  box-shadow: 0 0 0 4px rgba(241, 196, 15, 0.15);
+  z-index: 1;
+}
+
+.timeline-content h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+  color: #1a1a2e;
+}
+
+.timeline-meta {
+  font-size: 0.85rem;
+  color: #888;
+  margin-bottom: 0.6rem !important;
+}
+
+.timeline-period {
+  display: inline-block;
+  background: #fff9db;
+  color: #b8860b;
+  padding: 0.15rem 0.6rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.timeline-company {
+  color: #999;
+}
+
+.timeline-content ul {
+  padding-left: 1.1rem;
+  font-size: 0.92rem;
+}
+
+.timeline-content ul li {
+  margin-bottom: 0.2rem;
+}
+
+/* ─── CTA ─── */
+.cta-card {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #fff;
+  text-align: center;
+  border: none;
+}
+
+.cta-card h2 {
+  color: #fff;
+  border-bottom-color: #f1c40f;
+}
+
+.cta-card p {
+  color: #cbd5e1 !important;
+  margin-bottom: 1.25rem;
+}
+
+.cta-btn {
+  display: inline-block;
+  padding: 0.85rem 1.75rem;
+  background: linear-gradient(135deg, #f1c40f, #f39c12);
+  color: #1a1a2e;
+  text-decoration: none;
+  border-radius: 10px;
+  font-weight: 700;
+  transition: all 0.3s ease;
+}
+
+.cta-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(241, 196, 15, 0.4);
+}
+
+/* ─── Responsive About ─── */
+@media (max-width: 900px) {
+  .about-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .about-header h1 {
+    font-size: 2rem;
+  }
+
+  .about-avatar {
+    font-size: 3rem;
+  }
+
+  .about-card {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .about-page {
+    padding: 1rem 0.75rem;
+  }
+
+  .about-header h1 {
+    font-size: 1.75rem;
+  }
+
+  .about-card h2 {
+    font-size: 1.1rem;
+  }
+}
 /* ============================================
    RESPONSIVE
    ============================================ */
