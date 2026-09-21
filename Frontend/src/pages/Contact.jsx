@@ -1,8 +1,6 @@
-// src/pages/Contact.jsx
-import React, { useState, useCallback, useMemo } from 'react';
-import './Contact.css';
 
-// 🔹 Petit composant réutilisable pour les champs
+import React, { useState, useCallback, useMemo } from 'react';
+
 const FormField = ({ label, name, type = 'text', value, onChange, error, required, ...props }) => (
   <div className="form-group">
     <label htmlFor={name} className="form-label">
