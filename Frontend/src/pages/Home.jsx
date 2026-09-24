@@ -1,64 +1,92 @@
-// src/pages/Home.jsx
-import React from 'react';
+
+import React, { useEffect, useState, useCallback } from 'react';
 import Hero from '../components/Hero';
 import Skills from '../components/Skills';
 
+const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:5000/api';
+
 function Home() {
+  // 🔹 États pour les témoignages (chargés via backend)
+  const [testimonials, setTestimonials] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // 🔹 Chargement des témoignages
+  const loadTestimonials = useCallback((signal) => {
+    setLoading(true);
+    setError(null);
+
+    fetch(`${API_URL}/testimonials`, { signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Erreur ${res.status} : ${res.statusText}`);
+        return res.json();
+      })
+      .then((json) => setTestimonials(json))
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+        setError(err);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadTestimonials(controller.signal);
+    return () => controller.abort();
+  }, [loadTestimonials]);
+
+  const handleRetry = () => loadTestimonials();
+
   return (
-    <div>
+    <div className="home-page">
       <Hero />
       <Skills />
-      
-      {/* Section supplémentaire : Témoignages */}
-      <section style={{
-        marginTop: '4rem',
-        padding: '2rem',
-        backgroundColor: 'white',
-        borderRadius: '10px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-      }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '2rem' }}>
+
+      {/* ─── Section Témoignages ─── */}
+      <section className="testimonials-section" aria-labelledby="testimonials-title">
+        <h2 id="testimonials-title" className="section-title">
           🌟 Ce que disent mes clients
         </h2>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-          gap: '2rem'
-        }}>
-          <div style={{
-            textAlign: 'center',
-            padding: '1.5rem',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '8px'
-          }}>
-            <p style={{ fontStyle: 'italic', lineHeight: '1.6' }}>
-              "Excellent travail ! Très professionnel et à l'écoute."
-            </p>
-            <strong>- Client 1</strong>
+
+        {/* État : chargement */}
+        {loading && (
+          <div className="testimonials-state" aria-busy="true">
+            <div className="spinner" aria-hidden="true" />
+            <p>Chargement des témoignages…</p>
           </div>
-          <div style={{
-            textAlign: 'center',
-            padding: '1.5rem',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '8px'
-          }}>
-            <p style={{ fontStyle: 'italic', lineHeight: '1.6' }}>
-              "Un développeur talentueux qui a su comprendre mes besoins."
+        )}
+
+        {/* État : erreur */}
+        {error && !loading && (
+          <div className="testimonials-state">
+            <p role="alert" className="error-msg">
+              ❌ Impossible de charger les témoignages.
             </p>
-            <strong>- Client 2</strong>
+            <button type="button" onClick={handleRetry} className="cta-btn">
+              🔄 Réessayer
+            </button>
           </div>
-          <div style={{
-            textAlign: 'center',
-            padding: '1.5rem',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '8px'
-          }}>
-            <p style={{ fontStyle: 'italic', lineHeight: '1.6' }}>
-              "Je recommande vivement ses services !"
-            </p>
-            <strong>- Client 3</strong>
+        )}
+
+        {/* État : vide */}
+        {!loading && !error && testimonials.length === 0 && (
+          <p className="testimonials-empty">Aucun témoignage pour le moment.</p>
+        )}
+
+        {/* État : données */}
+        {!loading && !error && testimonials.length > 0 && (
+          <div className="testimonials-grid">
+            {testimonials.map(({ id, quote, author, role }) => (
+              <blockquote key={id} className="testimonial-card">
+                <p className="testimonial-quote">"{quote}"</p>
+                <footer className="testimonial-author">
+                  <strong>{author}</strong>
+                  {role && <span className="testimonial-role"> · {role}</span>}
+                </footer>
+              </blockquote>
+            ))}
           </div>
-        </div>
+        )}
       </section>
     </div>
   );
