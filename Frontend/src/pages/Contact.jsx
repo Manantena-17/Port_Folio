@@ -1,143 +1,217 @@
+// src/pages/Contact.jsx
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 
-import React, { useState, useCallback, useMemo } from 'react';
+const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:5000/api';
 
-const FormField = ({ label, name, type = 'text', value, onChange, error, required, ...props }) => (
-  <div className="form-group">
-    <label htmlFor={name} className="form-label">
-      {label} {required && <span className="required">*</span>}
-    </label>
-    {type === 'textarea' ? (
-      <textarea
+// 🔹 Configuration centralisée (facile à modifier)
+const CONFIG = {
+  nameMinLength: 2,
+  messageMinLength: 10,
+  messageMaxLength: 1000,
+  successDuration: 6000,
+};
+
+// 🔹 Regex email compilée une seule fois
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// 🔹 Champs du formulaire (évite la duplication)
+const INITIAL_FORM = { name: '', email: '', subject: '', message: '' };
+
+// ─────────────────────────────────────────────────────────────
+// Sous-composant : FormField (mémoïsé)
+// ─────────────────────────────────────────────────────────────
+const FormField = React.memo(function FormField({
+  label,
+  name,
+  type = 'text',
+  value,
+  onChange,
+  onBlur,
+  error,
+  required,
+  hint,
+  ...props
+}) {
+  const isTextarea = type === 'textarea';
+  const Tag = isTextarea ? 'textarea' : 'input';
+  const errorId = `${name}-error`;
+
+  return (
+    <div className="form-group">
+      <label htmlFor={name} className="form-label">
+        {label} {required && <span className="required" aria-hidden="true">*</span>}
+      </label>
+
+      <Tag
         id={name}
         name={name}
+        {...(isTextarea ? {} : { type })}
         value={value}
         onChange={onChange}
+        onBlur={onBlur}
         className={`form-input ${error ? 'error' : ''}`}
         aria-invalid={!!error}
-        aria-describedby={error ? `${name}-error` : undefined}
+        aria-describedby={error ? errorId : undefined}
+        aria-required={required}
         {...props}
       />
-    ) : (
-      <input
-        id={name}
-        name={name}
-        type={type}
-        value={value}
-        onChange={onChange}
-        className={`form-input ${error ? 'error' : ''}`}
-        aria-invalid={!!error}
-        aria-describedby={error ? `${name}-error` : undefined}
-        {...props}
-      />
-    )}
-    {error && (
-      <p id={`${name}-error`} className="error-message" role="alert">
-        ⚠️ {error}
-      </p>
-    )}
-  </div>
-);
 
+      {hint && !error && <p className="form-hint">{hint}</p>}
+
+      {error && (
+        <p id={errorId} className="error-message" role="alert">
+          ⚠️ {error}
+        </p>
+      )}
+    </div>
+  );
+});
+
+// ─────────────────────────────────────────────────────────────
+// Composant principal
+// ─────────────────────────────────────────────────────────────
 function Contact() {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: ''
-  });
+  const [formData, setFormData] = useState(INITIAL_FORM);
   const [errors, setErrors] = useState({});
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [touched, setTouched] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [status, setStatus] = useState(null); // 'success' | 'error' | null
 
-  // 🔹 Validation
-  const validate = useCallback((data) => {
-    const newErrors = {};
-    if (!data.name.trim()) newErrors.name = 'Le nom est requis';
-    else if (data.name.trim().length < 2) newErrors.name = 'Le nom doit contenir au moins 2 caractères';
+  // 🔹 Ref pour le timer de succès (évite les fuites mémoire)
+  const successTimer = useRef(null);
 
-    if (!data.email.trim()) newErrors.email = "L'email est requis";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-      newErrors.email = 'Format email invalide';
-    }
-
-    if (!data.message.trim()) newErrors.message = 'Le message est requis';
-    else if (data.message.trim().length < 10) {
-      newErrors.message = 'Le message doit contenir au moins 10 caractères';
-    }
-
-    return newErrors;
+  // 🔹 Nettoyage du timer au démontage
+  useEffect(() => {
+    return () => {
+      if (successTimer.current) clearTimeout(successTimer.current);
+    };
   }, []);
 
-  // 🔹 Changement de champ + validation en direct si déjà touché
+  // ─── Validation ───
+  const validate = useCallback((data) => {
+    const errs = {};
+
+    const name = data.name.trim();
+    if (!name) errs.name = 'Le nom est requis';
+    else if (name.length < CONFIG.nameMinLength) {
+      errs.name = `Le nom doit contenir au moins ${CONFIG.nameMinLength} caractères`;
+    }
+
+    const email = data.email.trim();
+    if (!email) errs.email = "L'email est requis";
+    else if (!EMAIL_REGEX.test(email)) errs.email = 'Format email invalide';
+
+    const message = data.message.trim();
+    if (!message) errs.message = 'Le message est requis';
+    else if (message.length < CONFIG.messageMinLength) {
+      errs.message = `Le message doit contenir au moins ${CONFIG.messageMinLength} caractères`;
+    }
+    else if (message.length > CONFIG.messageMaxLength) {
+      errs.message = `Le message ne doit pas dépasser ${CONFIG.messageMaxLength} caractères`;
+    }
+
+    return errs;
+  }, []);
+
+  // ─── Changement de champ ───
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
-    const updated = { ...formData, [name]: value };
-    setFormData(updated);
 
-    // Validation en temps réel si le champ a déjà été touché
-    if (touched[name]) {
-      const newErrors = validate(updated);
-      setErrors((prev) => ({ ...prev, [name]: newErrors[name] || '' }));
-    }
-  }, [formData, touched, validate]);
+    setFormData((prev) => {
+      const updated = { ...prev, [name]: value };
 
+      // Validation en direct uniquement si le champ a déjà été touché
+      if (touched[name]) {
+        const newErrors = validate(updated);
+        setErrors((prevErrs) => ({ ...prevErrs, [name]: newErrors[name] || '' }));
+      }
+
+      return updated;
+    });
+  }, [touched, validate]);
+
+  // ─── Blur (validation au premier blur) ───
   const handleBlur = useCallback((e) => {
     const { name } = e.target;
     setTouched((prev) => ({ ...prev, [name]: true }));
-    const newErrors = validate(formData);
-    setErrors((prev) => ({ ...prev, [name]: newErrors[name] || '' }));
-  }, [formData, validate]);
 
-  const handleSubmit = async (e) => {
+    setFormData((current) => {
+      const newErrors = validate(current);
+      setErrors((prev) => ({ ...prev, [name]: newErrors[name] || '' }));
+      return current;
+    });
+  }, [validate]);
+
+  // ─── Soumission ───
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    const newErrors = validate(formData);
+    if (isSubmitting) return;
 
+    const newErrors = validate(formData);
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      // Marquer tous les champs comme touchés
       setTouched({ name: true, email: true, subject: true, message: true });
+      setStatus(null);
       return;
     }
 
     setIsSubmitting(true);
+    setStatus(null);
 
     try {
-      // 🔹 Simulation d'envoi (remplacer par un vrai appel API)
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      // await fetch('/api/contact', { method: 'POST', body: JSON.stringify(formData) });
+      const res = await fetch(`${API_URL}/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          message: formData.message.trim(),
+        }),
+      });
 
-      console.log('Données envoyées:', formData);
-      setIsSubmitted(true);
-      setFormData({ name: '', email: '', subject: '', message: '' });
+      if (!res.ok) {
+        throw new Error(`Erreur ${res.status} : ${res.statusText}`);
+      }
+
+      setStatus('success');
+      setFormData(INITIAL_FORM);
       setTouched({});
       setErrors({});
 
-      setTimeout(() => setIsSubmitted(false), 6000);
+      // Auto-dismiss du message de succès
+      if (successTimer.current) clearTimeout(successTimer.current);
+      successTimer.current = setTimeout(() => setStatus(null), CONFIG.successDuration);
     } catch (err) {
-      console.error("Erreur d'envoi:", err);
-      setErrors({ global: "Une erreur est survenue. Veuillez réessayer." });
+      console.error("Erreur d'envoi :", err);
+      setStatus('error');
+      setErrors((prev) => ({
+        ...prev,
+        global: "Une erreur est survenue. Veuillez réessayer.",
+      }));
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [formData, isSubmitting, validate]);
 
+  // ─── Formulaire valide (mémoïsé) ───
   const isFormValid = useMemo(
     () => Object.keys(validate(formData)).length === 0,
     [formData, validate]
   );
 
-  const contactInfos = [
+  // ─── Données statiques (hors composant serait encore mieux) ───
+  const contactInfos = useMemo(() => [
     { icon: '📧', label: 'Email', value: 'email@example.com', href: 'mailto:email@example.com' },
     { icon: '📍', label: 'Localisation', value: 'Fianarantsoa, Madagascar' },
     { icon: '📱', label: 'Téléphone', value: '+261 34 00 000 00', href: 'tel:+261340000000' },
-  ];
+  ], []);
 
-  const socials = [
+  const socials = useMemo(() => [
     { name: 'GitHub', icon: '🐙', url: 'https://github.com' },
     { name: 'LinkedIn', icon: '💼', url: 'https://linkedin.com' },
     { name: 'Twitter', icon: '🐦', url: 'https://twitter.com' },
-  ];
+  ], []);
 
   return (
     <div className="contact-page">
@@ -156,7 +230,7 @@ function Contact() {
             <ul className="info-list">
               {contactInfos.map(({ icon, label, value, href }) => (
                 <li key={label} className="info-item">
-                  <span className="info-icon">{icon}</span>
+                  <span className="info-icon" aria-hidden="true">{icon}</span>
                   <div>
                     <div className="info-label">{label}</div>
                     {href ? (
@@ -180,17 +254,16 @@ function Contact() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="social-btn"
-                  aria-label={name}
+                  aria-label={`Profil ${name}`}
                 >
-                  <span>{icon}</span> {name}
+                  <span aria-hidden="true">{icon}</span> {name}
                 </a>
               ))}
             </div>
           </section>
 
-          {/* Bonus : carte de disponibilité */}
           <section className="info-card availability">
-            <span className="status-dot" />
+            <span className="status-dot" aria-hidden="true" />
             <span>Disponible pour de nouveaux projets</span>
           </section>
         </aside>
@@ -199,13 +272,13 @@ function Contact() {
         <main className="form-card">
           <h3>✉️ Envoyez-moi un message</h3>
 
-          {isSubmitted && (
-            <div className="alert success" role="status">
+          {status === 'success' && (
+            <div className="alert success" role="status" aria-live="polite">
               ✅ Message envoyé avec succès ! Je vous répondrai rapidement.
             </div>
           )}
 
-          {errors.global && (
+          {status === 'error' && errors.global && (
             <div className="alert error" role="alert">
               ❌ {errors.global}
             </div>
@@ -222,6 +295,7 @@ function Contact() {
               required
               placeholder="Jean Dupont"
               autoComplete="name"
+              maxLength={80}
             />
 
             <FormField
@@ -235,6 +309,7 @@ function Contact() {
               required
               placeholder="jean@exemple.com"
               autoComplete="email"
+              maxLength={120}
             />
 
             <FormField
@@ -244,6 +319,7 @@ function Contact() {
               onChange={handleChange}
               onBlur={handleBlur}
               placeholder="De quoi souhaitez-vous parler ?"
+              maxLength={120}
             />
 
             <FormField
@@ -255,12 +331,17 @@ function Contact() {
               onBlur={handleBlur}
               error={errors.message}
               required
-              rows="5"
+              rows={5}
               placeholder="Écrivez votre message ici..."
-              maxLength={1000}
+              maxLength={CONFIG.messageMaxLength}
             />
-            <div className="char-count">
-              {formData.message.length}/1000 caractères
+            <div
+              className={`char-count ${
+                formData.message.length > CONFIG.messageMaxLength * 0.9 ? 'warn' : ''
+              }`}
+              aria-live="polite"
+            >
+              {formData.message.length}/{CONFIG.messageMaxLength} caractères
             </div>
 
             <button
@@ -270,7 +351,7 @@ function Contact() {
             >
               {isSubmitting ? (
                 <>
-                  <span className="spinner" /> Envoi en cours...
+                  <span className="spinner" aria-hidden="true" /> Envoi en cours...
                 </>
               ) : (
                 <>📤 Envoyer le message</>
