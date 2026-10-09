@@ -1,13 +1,13 @@
 // src/componements/ContactForm.jsx
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import emailjs from '@emailjs/browser';
 
-// ─────────────────────────────────────────────────────────────
-// 1. Schéma de validation zod
-// ─────────────────────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────────
+   1. Schéma de validation
+   ───────────────────────────────────────────────────────────── */
 const contactSchema = z.object({
   name: z
     .string()
@@ -18,203 +18,203 @@ const contactSchema = z.object({
     .string()
     .min(1, "L'email est requis")
     .email("Format d'email invalide"),
-  subject: z
-    .string()
-    .max(120, 'Le sujet est trop long')
-    .optional()
-    .or(z.literal('')),
+  subject: z.string().max(120, 'Le sujet est trop long').optional(),
   message: z
     .string()
     .min(1, 'Le message est requis')
     .min(10, 'Le message doit contenir au moins 10 caractères')
-    .max(2000, 'Le message est trop long')
+    .max(2000, 'Le message est trop long'),
+  // 🍯 Honeypot : DOIT figurer dans le schéma, sinon zod le supprime
+  // du résultat validé et la détection anti-spam ne fonctionne plus.
+  honeypot: z.string().optional(),
 });
 
-// ─────────────────────────────────────────────────────────────
-// 2. Configuration EmailJS (variables d'environnement)
-// ─────────────────────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────────
+   2. Configuration EmailJS + garde-fou
+   ───────────────────────────────────────────────────────────── */
 const EMAILJS_CONFIG = {
   serviceId: import.meta.env.VITE_EMAILJS_SERVICE_ID,
   templateId: import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
-  publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+  publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY,
 };
 
-// ─────────────────────────────────────────────────────────────
-// 3. CSS injecté (scopé avec un préfixe cf-)
-// ─────────────────────────────────────────────────────────────
+const EMAILJS_READY = Object.values(EMAILJS_CONFIG).every(Boolean);
+
+if (!EMAILJS_READY && import.meta.env.DEV) {
+  console.warn(
+    '[ContactForm] Variables EmailJS manquantes. ' +
+      'Vérifiez VITE_EMAILJS_SERVICE_ID, VITE_EMAILJS_TEMPLATE_ID et VITE_EMAILJS_PUBLIC_KEY.'
+  );
+}
+
+const SUCCESS_RESET_DELAY = 4000;
+
+/* ─────────────────────────────────────────────────────────────
+   3. Styles (inchangés, extraits dans une constante)
+   ───────────────────────────────────────────────────────────── */
 const styles = `
-  .cf-container {
-    max-width: 600px;
-    margin: 0 auto;
-    padding: 2rem;
-    background-color: #fff;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    font-family: inherit;
-  }
-
-  .cf-title {
-    text-align: center;
-    margin-bottom: 2rem;
-  }
-
-  .cf-field {
-    margin-bottom: 1.5rem;
-  }
-
-  .cf-label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: bold;
-  }
-
-  .cf-input {
-    width: 100%;
-    padding: 0.8rem;
-    border: 2px solid #e0e0e0;
-    border-radius: 5px;
-    font-size: 1rem;
-    font-family: inherit;
-    box-sizing: border-box;
-    transition: border-color 0.3s, box-shadow 0.3s;
-  }
-
-  .cf-input:focus {
-    outline: none;
-    border-color: #f1c40f;
-    box-shadow: 0 0 0 3px rgba(241, 196, 15, 0.2);
-  }
-
-  .cf-input[aria-invalid='true'] {
-    border-color: #e74c3c;
-  }
-
-  .cf-input[aria-invalid='true']:focus {
-    box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.2);
-  }
-
-  textarea.cf-input {
-    resize: vertical;
-    min-height: 100px;
-  }
-
-  .cf-error {
-    color: #e74c3c;
-    font-size: 0.875rem;
-    margin: 0.4rem 0 0;
-  }
-
-  .cf-submit {
-    width: 100%;
-    background-color: #f1c40f;
-    color: #1a1a2e;
-    padding: 1rem;
-    border: none;
-    border-radius: 5px;
-    font-size: 1.1rem;
-    font-weight: bold;
-    cursor: pointer;
-    transition: transform 0.3s, background-color 0.3s;
-  }
-
-  .cf-submit:hover:not(:disabled) {
-    transform: scale(1.02);
-    background-color: #f39c12;
-  }
-
-  .cf-submit:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .cf-alert {
-    padding: 1rem;
-    border-radius: 5px;
-    margin-bottom: 1rem;
-    text-align: center;
-  }
-
-  .cf-alert-success {
-    background-color: #d4edda;
-    color: #155724;
-  }
-
-  .cf-alert-error {
-    background-color: #f8d7da;
-    color: #721c24;
-  }
-
-  .cf-honeypot {
-    position: absolute;
-    left: -9999px;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-  }
+  .cf-container { max-width: 600px; margin: 0 auto; padding: 2rem; background-color: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); font-family: inherit; }
+  .cf-title { text-align: center; margin-bottom: 2rem; }
+  .cf-field { margin-bottom: 1.5rem; }
+  .cf-label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+  .cf-input { width: 100%; padding: 0.8rem; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 1rem; font-family: inherit; box-sizing: border-box; transition: border-color .3s, box-shadow .3s; }
+  .cf-input:focus { outline: none; border-color: #f1c40f; box-shadow: 0 0 0 3px rgba(241,196,15,.2); }
+  .cf-input[aria-invalid='true'] { border-color: #e74c3c; }
+  .cf-input[aria-invalid='true']:focus { box-shadow: 0 0 0 3px rgba(231,76,60,.2); }
+  textarea.cf-input { resize: vertical; min-height: 100px; }
+  .cf-error { color: #e74c3c; font-size: .875rem; margin: .4rem 0 0; }
+  .cf-submit { width: 100%; background-color: #f1c40f; color: #1a1a2e; padding: 1rem; border: none; border-radius: 5px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: transform .3s, background-color .3s; }
+  .cf-submit:hover:not(:disabled) { transform: scale(1.02); background-color: #f39c12; }
+  .cf-submit:disabled { opacity: .6; cursor: not-allowed; }
+  .cf-alert { padding: 1rem; border-radius: 5px; margin-bottom: 1rem; text-align: center; }
+  .cf-alert-success { background-color: #d4edda; color: #155724; }
+  .cf-alert-error { background-color: #f8d7da; color: #721c24; }
+  .cf-honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 `;
 
-// ─────────────────────────────────────────────────────────────
-// 4. Composant principal
-// ─────────────────────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────────
+   4. Sous-composant champ (mutualise label + input + erreur)
+   ───────────────────────────────────────────────────────────── */
+const Field = React.memo(function Field({
+  id,
+  label,
+  required = false,
+  error,
+  register,
+  as: Tag = 'input',
+  ...rest
+}) {
+  const errorId = `${id}-error`;
+
+  return (
+    <div className="cf-field">
+      <label htmlFor={id} className="cf-label">
+        {label}
+        {required && <span aria-hidden="true"> *</span>}
+      </label>
+      <Tag
+        id={id}
+        className="cf-input"
+        aria-invalid={!!error}
+        aria-describedby={error ? errorId : undefined}
+        aria-required={required || undefined}
+        {...register}
+        {...rest}
+      />
+      {error && (
+        <p id={errorId} className="cf-error" role="alert">
+          {error.message}
+        </p>
+      )}
+    </div>
+  );
+});
+
+/* ─────────────────────────────────────────────────────────────
+   5. Composant principal
+   ───────────────────────────────────────────────────────────── */
 function ContactForm() {
-  const [status, setStatus] = useState('idle'); // idle | loading | success | error
+  const [status, setStatus] = useState('idle'); // idle | success | error
+  const successTimerRef = useRef(null);
+  const mountedRef = useRef(true);
 
   const {
     register,
     handleSubmit,
     reset,
-    formState: { errors, isSubmitting, touchedFields }
+    setFocus,
+    formState: { errors, isSubmitting, touchedFields, submitCount },
   } = useForm({
     resolver: zodResolver(contactSchema),
-    mode: 'onBlur', // validation au blur + revalidation au change
+    mode: 'onBlur',
     defaultValues: {
       name: '',
       email: '',
       subject: '',
       message: '',
-      honeypot: ''
-    }
+      honeypot: '',
+    },
   });
 
-  const onSubmit = async (data) => {
-    // Anti-spam : si le honeypot est rempli, on ignore silencieusement
-    if (data.honeypot) {
-      console.warn('Bot détecté, envoi ignoré.');
-      setStatus('success');
-      reset();
-      setTimeout(() => setStatus('idle'), 4000);
-      return;
-    }
+  /* ─── Nettoyage du timer au démontage ─── */
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    };
+  }, []);
 
-    setStatus('loading');
+  /* ─── Programmation du retour à l'état neutre ─── */
+  const scheduleReset = useCallback(() => {
+    if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    successTimerRef.current = setTimeout(() => {
+      if (mountedRef.current) setStatus('idle');
+    }, SUCCESS_RESET_DELAY);
+  }, []);
 
-    try {
-      await emailjs.send(
-        EMAILJS_CONFIG.serviceId,
-        EMAILJS_CONFIG.templateId,
-        {
-          from_name: data.name,
-          from_email: data.email,
-          subject: data.subject || '(sans sujet)',
-          message: data.message
-        },
-        { publicKey: EMAILJS_CONFIG.publicKey }
-      );
+  /* ─── Soumission ─── */
+  const onSubmit = useCallback(
+    async (data) => {
+      // 🍯 Honeypot rempli → robot. On simule un succès, sans rien envoyer.
+      if (data.honeypot) {
+        if (import.meta.env.DEV) console.warn('[ContactForm] Bot détecté, envoi ignoré.');
+        setStatus('success');
+        reset();
+        scheduleReset();
+        return;
+      }
 
-      setStatus('success');
-      reset();
-      setTimeout(() => setStatus('idle'), 4000);
-    } catch (error) {
-      console.error('Erreur EmailJS:', error);
-      setStatus('error');
-    }
-  };
+      if (!EMAILJS_READY) {
+        setStatus('error');
+        return;
+      }
 
-  const showError = (field) => touchedFields[field] && errors[field];
+      try {
+        await emailjs.send(
+          EMAILJS_CONFIG.serviceId,
+          EMAILJS_CONFIG.templateId,
+          {
+            from_name: data.name,
+            from_email: data.email,
+            subject: data.subject?.trim() || '(sans sujet)',
+            message: data.message,
+          },
+          { publicKey: EMAILJS_CONFIG.publicKey }
+        );
+
+        if (!mountedRef.current) return;
+        setStatus('success');
+        reset();
+        scheduleReset();
+      } catch (error) {
+        if (!mountedRef.current) return;
+        console.error('Erreur EmailJS:', error);
+        setStatus('error');
+      }
+    },
+    [reset, scheduleReset]
+  );
+
+  /* ─── Focus sur le premier champ en erreur après un échec de soumission ─── */
+  const onInvalid = useCallback(
+    (formErrors) => {
+      const firstField = Object.keys(formErrors)[0];
+      if (firstField) setFocus(firstField);
+    },
+    [setFocus]
+  );
+
+  /* ─── Affiche une erreur si le champ a été touché OU après une soumission ─── */
+  const showError = (field) =>
+    errors[field] && (touchedFields[field] || submitCount > 0)
+      ? errors[field]
+      : null;
+
+  const isSending = isSubmitting || status === 'idle' === false && status === 'loading';
 
   return (
     <>
-      {/* Injection du CSS */}
       <style>{styles}</style>
 
       <div className="cf-container">
@@ -232,8 +232,12 @@ function ContactForm() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
-          {/* Honeypot anti-spam (invisible pour l'utilisateur) */}
+        <form
+          onSubmit={handleSubmit(onSubmit, onInvalid)}
+          noValidate
+          aria-busy={isSubmitting || undefined}
+        >
+          {/* 🍯 Honeypot (invisible pour l'humain) */}
           <input
             type="text"
             tabIndex={-1}
@@ -243,94 +247,51 @@ function ContactForm() {
             {...register('honeypot')}
           />
 
-          <div className="cf-field">
-            <label htmlFor="name" className="cf-label">
-              Nom complet <span aria-hidden="true">*</span>
-            </label>
-            <input
-              id="name"
-              type="text"
-              autoComplete="name"
-              className="cf-input"
-              aria-invalid={!!showError('name')}
-              aria-describedby={showError('name') ? 'name-error' : undefined}
-              {...register('name')}
-            />
-            {showError('name') && (
-              <p id="name-error" className="cf-error" role="alert">
-                {errors.name.message}
-              </p>
-            )}
-          </div>
+          <Field
+            id="name"
+            label="Nom complet"
+            required
+            autoComplete="name"
+            error={showError('name')}
+            register={register('name')}
+          />
 
-          <div className="cf-field">
-            <label htmlFor="email" className="cf-label">
-              Email <span aria-hidden="true">*</span>
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              className="cf-input"
-              aria-invalid={!!showError('email')}
-              aria-describedby={showError('email') ? 'email-error' : undefined}
-              {...register('email')}
-            />
-            {showError('email') && (
-              <p id="email-error" className="cf-error" role="alert">
-                {errors.email.message}
-              </p>
-            )}
-          </div>
+          <Field
+            id="email"
+            label="Email"
+            type="email"
+            required
+            autoComplete="email"
+            inputMode="email"
+            error={showError('email')}
+            register={register('email')}
+          />
 
-          <div className="cf-field">
-            <label htmlFor="subject" className="cf-label">
-              Sujet
-            </label>
-            <input
-              id="subject"
-              type="text"
-              autoComplete="off"
-              className="cf-input"
-              aria-invalid={!!showError('subject')}
-              aria-describedby={showError('subject') ? 'subject-error' : undefined}
-              {...register('subject')}
-            />
-            {showError('subject') && (
-              <p id="subject-error" className="cf-error" role="alert">
-                {errors.subject.message}
-              </p>
-            )}
-          </div>
+          <Field
+            id="subject"
+            label="Sujet"
+            autoComplete="off"
+            error={showError('subject')}
+            register={register('subject')}
+          />
 
-          <div className="cf-field">
-            <label htmlFor="message" className="cf-label">
-              Message <span aria-hidden="true">*</span>
-            </label>
-            <textarea
-              id="message"
-              rows={5}
-              className="cf-input"
-              aria-invalid={!!showError('message')}
-              aria-describedby={showError('message') ? 'message-error' : undefined}
-              {...register('message')}
-            />
-            {showError('message') && (
-              <p id="message-error" className="cf-error" role="alert">
-                {errors.message.message}
-              </p>
-            )}
-          </div>
+          <Field
+            id="message"
+            label="Message"
+            required
+            as="textarea"
+            rows={5}
+            error={showError('message')}
+            register={register('message')}
+          />
 
           <button
             type="submit"
             className="cf-submit"
-            disabled={isSubmitting || status === 'loading'}
-            aria-busy={isSubmitting || status === 'loading'}
+            disabled={isSubmitting}
+            aria-busy={isSubmitting || undefined}
           >
-            {isSubmitting || status === 'loading'
-              ? 'Envoi en cours…'
-              : 'Envoyer le message'}
+            {isSubmitting ? 'Envoi en cours…' : 'Envoyer le message'}
           </button>
         </form>
       </div>
