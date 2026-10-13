@@ -50,7 +50,7 @@ if (!EMAILJS_READY && import.meta.env.DEV) {
 const SUCCESS_RESET_DELAY = 4000;
 
 /* ─────────────────────────────────────────────────────────────
-   3. Styles (inchangés, extraits dans une constante)
+   3. Styles
    ───────────────────────────────────────────────────────────── */
 const styles = `
   .cf-container { max-width: 600px; margin: 0 auto; padding: 2rem; background-color: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); font-family: inherit; }
@@ -73,7 +73,7 @@ const styles = `
 `;
 
 /* ─────────────────────────────────────────────────────────────
-   4. Sous-composant champ (mutualise label + input + erreur)
+   4. Sous-composant champ
    ───────────────────────────────────────────────────────────── */
 const Field = React.memo(function Field({
   id,
@@ -102,7 +102,7 @@ const Field = React.memo(function Field({
         {...rest}
       />
       {error && (
-        <p id={errorId} className="cf-error" role="alert">
+        <p id={errorId} className="cf-error">
           {error.message}
         </p>
       )}
@@ -114,7 +114,7 @@ const Field = React.memo(function Field({
    5. Composant principal
    ───────────────────────────────────────────────────────────── */
 function ContactForm() {
-  const [status, setStatus] = useState('idle'); // idle | success | error
+  const [status, setStatus] = useState('idle'); // 'idle' | 'success' | 'error'
   const successTimerRef = useRef(null);
   const mountedRef = useRef(true);
 
@@ -136,7 +136,6 @@ function ContactForm() {
     },
   });
 
-  /* ─── Nettoyage du timer au démontage ─── */
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -145,7 +144,6 @@ function ContactForm() {
     };
   }, []);
 
-  /* ─── Programmation du retour à l'état neutre ─── */
   const scheduleReset = useCallback(() => {
     if (successTimerRef.current) clearTimeout(successTimerRef.current);
     successTimerRef.current = setTimeout(() => {
@@ -153,12 +151,13 @@ function ContactForm() {
     }, SUCCESS_RESET_DELAY);
   }, []);
 
-  /* ─── Soumission ─── */
   const onSubmit = useCallback(
     async (data) => {
       // 🍯 Honeypot rempli → robot. On simule un succès, sans rien envoyer.
       if (data.honeypot) {
-        if (import.meta.env.DEV) console.warn('[ContactForm] Bot détecté, envoi ignoré.');
+        if (import.meta.env.DEV) {
+          console.warn('[ContactForm] Bot détecté, envoi ignoré.');
+        }
         setStatus('success');
         reset();
         scheduleReset();
@@ -196,7 +195,6 @@ function ContactForm() {
     [reset, scheduleReset]
   );
 
-  /* ─── Focus sur le premier champ en erreur après un échec de soumission ─── */
   const onInvalid = useCallback(
     (formErrors) => {
       const firstField = Object.keys(formErrors)[0];
@@ -205,13 +203,14 @@ function ContactForm() {
     [setFocus]
   );
 
-  /* ─── Affiche une erreur si le champ a été touché OU après une soumission ─── */
-  const showError = (field) =>
-    errors[field] && (touchedFields[field] || submitCount > 0)
-      ? errors[field]
-      : null;
-
-  const isSending = isSubmitting || status === 'idle' === false && status === 'loading';
+  /* Affiche une erreur si le champ a été touché OU après une soumission. */
+  const showError = useCallback(
+    (field) =>
+      errors[field] && (touchedFields[field] || submitCount > 0)
+        ? errors[field]
+        : null,
+    [errors, touchedFields, submitCount]
+  );
 
   return (
     <>
